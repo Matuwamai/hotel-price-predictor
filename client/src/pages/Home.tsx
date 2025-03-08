@@ -1,81 +1,113 @@
-import { useState } from "react";
-import Reata from "../assets/download.jpeg"
-import Kafico from "../assets/download (1).jpeg"
+import { useState, useEffect } from "react";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { FaStar } from "react-icons/fa";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+import Button from "../componets/Button";
 
+// Fix Leaflet marker issue with default icons
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
-const hotels = [
-  {
-    id: 1,
-    name: "Reata Apartment Hotel",
-    rating: 4.6,
-    reviews: 5,
-    price: "Ksh 13,112",
-    discount: "23% less than usual",
-    image: Reata, // Replace with actual image URL
-    location: "Nairobi, Kenya",
-  },
-  {
-    id: 2,
-    name: "Kafico Hotel",
-    rating: 4.2,
-    reviews: 17,
-    price: "Ksh 8,500",
-    discount: "10% off",
-    image: Kafico,
-    location: "Nairobi, Kenya",
-  },
-];
+const customIcon = new L.Icon({
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
 
-export default function HomePage() {
-  const [dates, setDates] = useState({ checkIn: "Feb 26", checkOut: "Feb 27" });
+export default function HotelListing() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [hotels, setHotels] = useState([]);
 
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Fetch hotels from API
+  const fetchHotels = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/hotels?location=Nairobi');
+      const data = await response.json();
+      console.log('Hotels Data:', data);
+    } catch (error) {
+      console.error('Error fetching hotels:', error);
+    }
+  };
+  
   return (
-    <div className="p-4 bg-gray-900 text-white min-h-screen">
-      {/* Date Selection */}
-      <div className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
-        <button className="flex items-center gap-2">
-          <FaRegCalendarAlt /> {dates.checkIn} - {dates.checkOut}
-        </button>
-      </div>
+    <div className="flex h-screen">
+      {/* Filters Sidebar (Reduced Width) */}
+      {!isMobile && (
+        <div className="p-4 w-1/5 border-r hidden md:block bg-gray-100">
+          <h2 className="text-lg font-semibold mb-4">Filters</h2>
+          <Button className="w-full mb-2">Price</Button>
+          <Button className="w-full mb-2">Offers</Button>
+          <Button className="w-full mb-2">Guest Rating</Button>
+        </div>
+      )}
 
-      {/* Filters */}
-      <div className="flex gap-2 mt-4 overflow-x-auto">
-        <button className="px-4 py-2 bg-gray-700 rounded-lg flex items-center gap-2">
-          <IoFilterSharp /> Price
-        </button>
-        <button className="px-4 py-2 bg-gray-700 rounded-lg">Offers</button>
-        <button className="px-4 py-2 bg-gray-700 rounded-lg">Guest rating</button>
-      </div>
-
-      {/* Hotel Listings */}
-      <div className="mt-6 space-y-4">
-        {hotels.map((hotel) => (
-          <div
-            key={hotel.id}
-            className="bg-gray-800 p-4 rounded-lg flex flex-col gap-2"
-          >
-            <img
-              src={hotel.image}
-              alt={hotel.name}
-              className="w-full h-40 object-cover rounded-lg"
-            />
-            <div>
-              <h3 className="text-lg font-semibold">{hotel.name}</h3>
-              <p className="text-yellow-400 text-sm">
-                {hotel.rating} ⭐ ({hotel.reviews})
-              </p>
-              <div className="flex items-center gap-2 mt-2">
-                <MdOutlineLocationOn />
-                <span className="text-gray-400 text-sm">{hotel.location}</span>
-              </div>
-              <div className="mt-2 flex justify-between items-center">
-                <span className="text-xl font-bold">{hotel.price}</span>
-                <span className="text-blue-400 text-sm">{hotel.discount}</span>
+      {/* Hotel List Section */}
+      <div className="p-4 w-full md:w-2/5 lg:w-1/3 overflow-y-auto">
+        {hotels.length > 0 ? (
+          hotels.map((hotel) => (
+            <div
+              key={hotel.id}
+              className="mb-6 p-4 border rounded-lg shadow-lg flex flex-col md:flex-row relative"
+            >
+              <img
+                src={hotel.image}
+                alt={hotel.name}
+                className="w-full md:w-40 h-40 rounded-lg object-cover"
+              />
+              <div className="p-4 flex-1">
+                <h3 className="text-lg font-bold">{hotel.name}</h3>
+                <div className="flex items-center text-yellow-500">
+                  {[...Array(Math.round(hotel.rating))].map((_, i) => (
+                    <FaStar key={i} />
+                  ))}
+                  <span className="text-gray-500 ml-2">({hotel.reviews})</span>
+                </div>
+                <p className="text-blue-600 font-semibold">Ksh {hotel.price}</p>
               </div>
             </div>
-          </div>
-        ))}
+          ))
+        ) : (
+          <p>Loading hotels...</p>
+        )}
       </div>
+
+      {/* Map Section (Takes More Space) */}
+      {!isMobile && (
+        <div className="hidden lg:block w-2/5 lg:w-1/2 border-l">
+          <h2 className="text-lg font-semibold p-4">Map</h2>
+          <MapContainer
+            center={[-1.2921, 36.8219]}
+            zoom={13}
+            className="h-full w-full rounded-lg shadow"
+          >
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            />
+            {hotels.map((hotel) => (
+              <Marker
+                key={hotel.id}
+                position={hotel.coordinates}
+                icon={customIcon}
+              >
+                <Popup>
+                  <strong>{hotel.name}</strong> <br />
+                  {hotel.location} <br />
+                  Ksh {hotel.price}
+                </Popup>
+              </Marker>
+            ))}
+          </MapContainer>
+        </div>
+      )}
     </div>
   );
 }
